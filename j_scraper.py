@@ -1,6 +1,7 @@
 from urllib.request import urlopen
 from bs4 import BeautifulSoup
 import re
+import pandas as pd
 
 # expects 
 def parse_score(row):
@@ -14,12 +15,47 @@ def parse_score(row):
 
 def find_answer(clue):
     return clue.findNext('div').get('onmouseover')
+
+def extract_player_name(text):
+    return text.split(',')[0].split(' ')
+
+def extract_playerid(person):
+    link = person.find('a')['href']
+    return link[link.find('=')+1:]
+
+def extract_hometown(text):
+    town_state = text.split('from')[1].split(',')
+    town_state[1] = town_state[1].split(' ')[1]
+    return town_state
+
+def extract_occupation(text):
+    occupation = text.split(',')[1]
+    return occupation[1:occupation.find('from')]
     
+def parse_contestants_table(parsed_html):
+    contestant_tags = parsed_html.findAll('p', {'class': 'contestants'})
+    contestants = []
+    for person in contestant_tags:
+        person_id = extract_playerid(person)
+        player_name = extract_player_name(person.text)
+        hometown = extract_hometown(person.text)
+        occupation = extract_occupation(person.text)
+        contestants.append({'player_id' : person_id, 'player_first_name' : player_name[0].strip(),
+                            'player_last_name' : player_name[1].strip(), 'occupation' : occupation.strip(),
+                            'hometown_city' : hometown[0].strip(), 'hometown_state' : hometown[1].strip()})
+    return contestants
+
+def parse_player_locations(parsed_html,game_id):
+    contestant_tags = parsed_html.findAll('p', {'class': 'contestants'})
+    ids = [extract_playerid(person) for person in contestant_tags]
+    return [{'game_id': game_id,'player_id': ids[0], 'seat_location': 'right'},
+            {'game_id': game_id, 'player_id': ids[1], 'seat_location': 'middle'},
+            {'game_id': game_id, 'player_id': ids[2], 'seat_location': 'returning_champ'}]
 
 def parse_jeopardy_questions(url_string):
     html = urlopen(url_string)
     parsed_html = BeautifulSoup(html,'html5lib')
-    
+
     categories = parsed_html.findAll('td',{'class' : 'category_name'})
     categories = [cat.text for cat in categories]
     
@@ -36,7 +72,10 @@ def parse_jeopardy_questions(url_string):
     answers = {}
     for i,clue in enumerate(clues):
         try:
-            answer_text = BeautifulSoup(find_answer(clue)).find('em',{'class':'correct_response'}).text
+            formatted_answer = BeautifulSoup(find_answer(clue),'html5')
+            answer_text = formatted_answer.find('em',{'class' : 'correct_response'}).text
+            correct_respondent  = formatted_answer.find('td',{'class' : 'right'}).text
+            incorrect_responders = formatted_answer.find('td',{'class' : 'wrong'})
             answer_id = re.search('clue_D?J_[0-9]_[0-9]',find_answer(clue)).group()
             answers[answer_id] = answer_text
         except:

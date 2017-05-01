@@ -31,6 +31,18 @@ def extract_hometown(text):
 def extract_occupation(text):
     occupation = text.split(',')[1]
     return occupation[1:occupation.find('from')]
+
+def map_to_value(round,row_index):
+    values = [200,400,600,800,1000]
+    if round == 'J':
+        return values[int(row_index) - 1]
+    else:
+        return 2*values[int(row_index) - 1]
+
+def map_to_category(round,categories,column_index):
+    offset = 0 if round == 'J' else 6
+    return categories[offset + int(column_index) - 1]
+
     
 def parse_contestants_table(parsed_html):
     contestant_tags = parsed_html.findAll('p', {'class': 'contestants'})
@@ -52,9 +64,7 @@ def parse_player_locations(parsed_html,game_id):
             {'game_id': game_id, 'player_id': ids[1], 'seat_location': 'middle'},
             {'game_id': game_id, 'player_id': ids[2], 'seat_location': 'returning_champ'}]
 
-def parse_jeopardy_questions(url_string):
-    html = urlopen(url_string)
-    parsed_html = BeautifulSoup(html,'html5lib')
+def parse_jeopardy_questions(parsed_html,game_id):
 
     categories = parsed_html.findAll('td',{'class' : 'category_name'})
     categories = [cat.text for cat in categories]
@@ -80,12 +90,24 @@ def parse_jeopardy_questions(url_string):
             answers[answer_id] = answer_text
         except:
             pass
+
     # need final jeopardy answer
     
     fj_div = BeautifulSoup(find_answer(parsed_html.find('table',{'class':'final_round'})),'html5')
     answers['clue_FJ'] = fj_div.find('em').text
-    
-    return categories,clues_dict, answers
+
+    question_list = []
+    for id in answers.keys():
+        if id == 'clue_FJ':
+            question_list.append({'game_id' : game_id, 'round' : 'final', 'category' : 'final',
+                                   'value' : -1, 'question_text' : clues_dict[id], 'answer' : answers[id]})
+        else:
+            tokens = id.split('_')
+            value = map_to_value(tokens[1],tokens[3])
+            category = map_to_category(tokens[1],categories,tokens[2])
+            question_list.append({'game_id' : game_id, 'round' : tokens[1], 'category' : category,
+                                  'value' : value, 'question_text' : clues_dict[id], 'answer' : answers[id]})
+    return question_list
     
 def parse_season(url_string):
     season = {}

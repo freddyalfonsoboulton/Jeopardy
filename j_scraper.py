@@ -122,41 +122,45 @@ def parse_season(url_string):
         except TypeError:
             pass
     return season
-            
-        
+
+
 def get_fj_results(url_string):
     html = urlopen(url_string)
-    parsed_html = BeautifulSoup(html,'html5lib')
-    
+    parsed_html = BeautifulSoup(html, 'html5lib')
+
     # table of scores going into final jeopardy
-    dj_table = parsed_html.find('div',{'id':'double_jeopardy_round'}).\
+    dj_table = parsed_html.find('div', {'id': 'double_jeopardy_round'}).\
                 find('h3').find_next_sibling()
     player_names = [child.text for child in dj_table.tr.findChildren()]
     dj_scores = [parse_score(row) for row in dj_table.tr.find_next_sibling().findChildren()]
-    
+
     # parsing final jeopary wagers
-    fj_table = parsed_html.find('div',{'id':'final_jeopardy_round'}).\
-                find('td',{'class':"category"}).findChild()
-    table = BeautifulSoup(fj_table.get('onmouseover'),'html5lib').\
-            body.find('table').find_next()
+    fj_table = parsed_html.find('div', {'id': 'final_jeopardy_round'}).\
+        find('td', {'class': "category"}).findChild()
+    table = BeautifulSoup(fj_table.get('onmouseover'), 'html5lib').\
+        body.find('table').find_next()
     contestants = []
     fj_wagers = []
     fj_correct = []
     for row in table.findAll('td'):
         test = row.attrs
         if test == {}:
-            fj_wagers.append(re.sub('\$|,','',row.text))
+            fj_wagers.append(re.sub('\$|,', '', row.text))
         elif test.get('class') == ['wrong']:
             contestants.append(row.text)
             fj_correct.append(False)
         elif test.get('class') == ['right']:
             contestants.append(row.text)
             fj_correct.append(True)
-    
-    dj = dict(zip(player_names,dj_scores))
-    for contestant,wager,correct in zip(contestants,fj_wagers,fj_correct):
-        dj[contestant] = [dj[contestant]] + [wager,correct]
-    return dj
+
+    dj = dict(zip(player_names, dj_scores))
+    fj_list = []
+    positions = dict(zip(player_names,['returning_champion','middle','right']))
+    for contestant, wager, correct in zip(contestants, fj_wagers, fj_correct):
+        fj_list.append({'game_id': game_id, 'position' : positions[contestant],
+                        'dj_score' : dj[contestant],
+                        'wager' : wager, 'correct' :  correct})
+    return fj_list
 
 def get_links(url):
     html = urlopen('http://j-archive.com/showseason.php?season=33')

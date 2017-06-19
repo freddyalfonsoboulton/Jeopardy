@@ -11,7 +11,7 @@ questions[,full_text := paste(question_text, answer, sep = ' ')]
 common_categories <- questions[,.(count = .N), by = category][order(count,decreasing = T)][2:11,category]
 
 
-tidy_words <- questions %>% unnest_tokens(word, full_text)
+tidy_words <- questions %>% unnest_tokens(word, full_text) %>% anti_join(stop_words)
 tidy_words  <-  tidy_words  %>% count(category, word)
 tidy_words <- tidy_words %>% bind_tf_idf(word,category, n)
 

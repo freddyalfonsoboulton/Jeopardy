@@ -8,8 +8,16 @@ library(ggplot2)
 questions <- fread('jeopardy_questions.csv')
 # binding question and answer together
 questions[,full_text := paste(question_text, answer, sep = ' ')]
+questions[,full_text := str_replace_all(full_text, "[[:punct:]]", "")]
 common_categories <- questions[,.(count = .N), by = category][order(count,decreasing = T)][2:11,category]
 
+#Decided to not remove clue crew part because the remaining text could be good
+# removing punctuation seems to make sense
+test <- str_replace(c('Hello there (jimmy b)', 'Enrique of (Clue Crew)',
+                      '(Kelly from the Clue Crew) Says something',
+                      'from the (Clue)',
+                      'Hey (Clue) there (Crew)'),"\\(.*(Clue Crew).*\\)", '')
+orig <- str_detect(questions$question_text, "\\(.*(Clue Crew).*\\)")
 
 tidy_words <- questions %>% unnest_tokens(word, full_text) %>% anti_join(stop_words)
 tidy_words  <-  tidy_words  %>% count(category, word)
